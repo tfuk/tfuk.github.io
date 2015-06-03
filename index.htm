@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<title>Operational Amplifier resistor pair calculator</title>
+
+<script type="text/javascript">
+
+var E12 = [100, 120, 150, 180, 220, 270, 330, 390, 470, 560, 680, 820, "E12", 10];
+var E24 = [100, 110, 120, 130, 150, 160, 180, 200, 220, 240, 270, 300, 330, 360, 390, 430, 470, 510, 560, 620, 680, 750, 820, 910, "E24", 5];
+var E48 = [100, 105, 110, 115, 121, 127, 133, 140, 147, 154, 162, 169,
+	178,	187,	196, 205,	215,	226, 237,	249, 261, 274,	287,	301, 316,	332,	348, 365, 383, 402,
+	422,	442,	464, 487,	511,	536, 562, 590,	619, 649,	681,	715, 750,	787,	825, 866,	909,	953, "E48", 2];
+var E96 = [100, 102, 105, 107, 110, 113, 115, 118, 121, 124, 127, 130, 133, 137, 140, 143, 147, 150, 154, 158, 162, 165, 169, 174, 178, 182, 187, 191, 196, 200, 205, 210, 215, 221, 226, 232, 237, 243, 249, 255, 261, 267, 274, 280, 287, 294, 301, 309, 316, 324, 332, 340, 348, 357, 365, 374, 383, 392, 402, 412, 422, 432, 442, 453, 464, 475, 487, 499, 511, 523, 536, 549, 562, 576, 590, 604, 619, 634, 649, 665, 681, 698, 715, 732, 750, 768, 787, 806, 825, 845, 866, 887, 909, 931, 953, 976, "E96", 1];
+
+var Resistors = {E12:E12, E24:E24, E48:E48, E96:E96};
+
+function populate_textres(){
+
+	var resRes = document.getElementById("resRes");
+	
+	resRes.value = '';
+
+	if (document.getElementById("E12").checked == true) {
+		print_resistors(E12, resRes);
+	}
+	if (document.getElementById("E24").checked == true) {
+		print_resistors(E24, resRes);
+	}
+	if (document.getElementById("E48").checked == true) {
+		print_resistors(E48, resRes);
+	}
+	if (document.getElementById("E96").checked == true) {
+		print_resistors(E96, resRes);
+	}	
+
+}
+
+function print_resistors(table, txt) {
+	len = table.length-2;
+	txt.value += table[len] + ': ';
+	
+	for (var i = 0; i < len; i++) {
+		txt.value += table[i] + ' ';	
+	}
+	txt.value += '\n\n';
+}
+
+function RPairs(table, gain, inv){
+	this.result = new Array();
+	var a = new Array();
+	var R1 = 0;
+	var R2 = 0;
+	var GN = 0.0;
+	var err = 0.0;
+	var errb = 0.0;
+	
+	if (inv <= 0) {
+		gain--;	
+	}
+
+	for (var i = 0, len = table.length-2; i < len; i++) {
+		R2 = table[i];
+
+		var x = new scinote(R2*gain);
+		
+		for (var j = 0, len2 = table.length-2; j < len2; j++) {
+			if (x.val < table[j]) {
+				err = table[j] - x.val;				
+				break;
+			}
+		}
+		
+		errb = (x.val - table[j-1]);
+		
+		if (j == len2) { 
+			err = (table[0]*10 - x.val);				
+		}
+				
+		if (Math.abs(errb) < Math.abs(err)) {
+			R1 = table[j-1];
+		} else {
+			if (j < len2) {
+				R1 = table[j];
+			} else {
+				R1 = table[0]*10;
+			}
+		}		
+		
+		R1 *= Math.pow(10,x.exp);
+			
+		var GN = R1/R2;
+		
+		var tol = table[len+1];
+		tol *= 2;
+		
+		if (inv <= 0) {
+			tol = (GN*tol)/(GN+1);
+			GN++;
+			err = GN/(gain+1);
+		} else {
+			err = GN/gain;
+		}
+		
+		err = (err-1)*100;		
+		this.result.push(new Array(R1, R2, GN, err, tol));					
+	}
+}
+
+function scinote (a){
+    this.exp = 0;
+    
+    while (Math.floor(Math.abs(a)) > 999){
+        a = a/10;
+        this.exp = this.exp+1;
+    }
+    this.val = a;
+}
+
+function calculate() {
+	var txt = document.getElementById("resText");
+
+	var cktols = document.getElementsByName('cktol');
+	var values;
+	for(var i = 0; i < cktols.length; i++){
+    	if(cktols[i].checked){
+        values = Resistors[cktols[i].id];
+        break;
+    	}
+	}
+
+	num = document.getElementById('numGain').valueAsNumber;
+	
+	if (document.getElementById("radInv").checked == true) {
+		data = new RPairs(values, num, 1);
+		txt.value = 'Inverting';
+	} else {
+		data = new RPairs(values, num, -1);
+		txt.value = 'Non-Inverting';
+	}
+	
+	txt.value += ' amplifier with desired gain of ' + num +'\n\n';
+	txt.value += 'R1\t R2\t Gn\t err\(%)\t tol(%)\n';	
+	
+	data.result.sort(function (a, b) {return (Math.abs(a[3]) - Math.abs(b[3]))})
+	
+	for (var j = 0, len = data.result.length; j < len; j++) {		
+		txt.value += data.result[j][0] + '\t ';
+		txt.value += data.result[j][1] + '\t ';
+		txt.value += data.result[j][2].toFixed(2) + '\t ';
+		txt.value += data.result[j][3].toFixed(2) + '\t ';
+		txt.value += '±' + data.result[j][4].toFixed(2) + '\n';
+	}	
+}
+
+function nInv_img() {
+	document.getElementById("ampImg").src="opamp_gain/ninv.png";
+	document.getElementById("numGain").min="2.0";	
+	MinNumerInput();
+}
+
+function Inv_img() {
+	document.getElementById("ampImg").src="opamp_gain/inv.png";
+	document.getElementById("numGain").min="1.0";	
+	MinNumerInput();
+}
+
+function MinNumerInput() {
+	var val = document.getElementById("numGain").value;
+	if (document.getElementById("radInv").checked == true) {
+		if (val < 1.0) {
+			document.getElementById("numGain").value = 1.0;
+		}
+	} else {
+		if (val < 2.0) {
+			document.getElementById("numGain").value = 2.0;
+		}
+	}
+}
+
+</script>
+
+<style type="text/css">
+	#container
+	{
+		margin: 0 auto;
+		width: 600px;
+		background:#fff;
+	}
+</style>
+
+</head>
+<body onload="populate_textres()">
+<div id="container">
+<h1 align="center">Op-amp resistors pair calculator</h1>
+<h3 align="center">(with minimum nominal error and tolerances)</h3>
+<table>
+	<tr><td>
+		<table>
+			<tr><td><img src="opamp_gain/inv.png" width="300" height="146" alt="" id="ampImg"></td>
+			<td>
+				<h2>Type</h2>
+					<form action="#">
+						<input name="type" type="radio" id="radInv" alt="Inverter" checked="true" onclick="Inv_img()">Inverter<br>
+						<input name="type" type="radio" id="radNInv" alt="Non-inverter" onclick="nInv_img()">Non-inverter<br>
+						<br><h2>Desired gain:</h2>
+						<input type="number" id="numGain" min="1.0" value="10.0" onchange="MinNumerInput()" step="0.01">
+						<input type="submit" value="Calculate" onClick="calculate(); return false">
+					</form>
+			</td></tr>
+		</table>
+		</td></tr>
+	<tr><td>
+		<h2>Resistors and typical tolerances:</h2>
+		<form>
+			<input name="cktol" type="radio" id="E12" onclick="populate_textres()">E12, ±10%<br>
+			<input name="cktol" type="radio" id="E24" onclick="populate_textres()" checked="true">E24, ±5%<br>
+			<input name="cktol" type="radio" id="E48" onclick="populate_textres()">E48, ±2%<br>
+			<input name="cktol" type="radio" id="E96" onclick="populate_textres()">E96, ±1%<br>
+		</form>			
+			<textarea id="resRes" rows="4" cols="80"></textarea>
+		<h1>Results:</h1>
+		<ul>
+			<li><b>R1 and R2:</b> pairs of resistors</li>
+			<li><b>Gn:</b> resistor pair nominal gain</li>
+			<li><b>err(%):</b> percentual error in relation with desired gain</li>
+			<li><b>tol(%):</b> typical gain tolerance</li>
+		</ul>
+			<textarea id="resText" rows="10" cols="80"></textarea>
+	</td></tr>
+</table>
+<br><br><br>
+<hr>
+<div align="right">Note: this is my first page with javascript.</div>
+</div>
+</body>
+</html>
